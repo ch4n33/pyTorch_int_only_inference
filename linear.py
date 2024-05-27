@@ -12,10 +12,11 @@ class Linear(nn.Module):
         self.bias = torch.nn.Parameter(torch.randn(out_features))
         self.activation_quantizer = activation_quantizer or Quantizer(8, RangeTracker())
         self.weight_quantizer = weight_quantizer or Quantizer(8, RangeTracker())
-        self.quantization = False
+        # bias는 32bit precision으로, quantization 할 필요가 없음
+        self.QAT = False
 
     def forward(self, x):
-        if self.quantization:
+        if self.QAT:
             x = self.activation_quantizer(x)
             weight = self.weight_quantizer(self.weight)
         else:

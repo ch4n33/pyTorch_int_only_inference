@@ -61,9 +61,10 @@ class Quantizer(nn.Module):
     def update_params(self):
         quantized_range = self.max_val - self.min_val - 1
         float_range = self.range_tracker.max_val - self.range_tracker.min_val
+        
+        # int only inference에 사용될 값인 scale과 zero_point를 업데이트
         self.scale = float_range / quantized_range
-        zero_point = torch.round(self.range_tracker.min_val * self.scale)
-        self.zero_point = 0 # idk
+        self.zero_point = self.quantize(0)
         
     def forward(self, x):
         x = self.quantize(x)

@@ -3,17 +3,18 @@ import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import numpy as np
+from model import *
 
 
 # 데이터 변환 정의
 transform = transforms.Compose([
     transforms.ToTensor(),  # 이미지를 PyTorch 텐서로 변환
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))  # CIFAR-10의 평균과 표준편차로 정규화
+    transforms.Normalize(mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010))  # CIFAR-10의 평균과 표준편차로 정규화
 ])
 
 # CIFAR-10 학습 데이터셋 불러오기
 trainset = torchvision.datasets.CIFAR10(
-    root='./data',  # 데이터셋을 저장할 경로
+    root='../CIFAR10_data',  # 데이터셋을 저장할 경로
     train=True,  # 학습용 데이터셋
     download=True,  # 데이터셋이 경로에 없으면 다운로드
     transform=transform  # 정의한 변환 적용
@@ -28,7 +29,7 @@ trainloader = torch.utils.data.DataLoader(
 
 # CIFAR-10 테스트 데이터셋 불러오기
 testset = torchvision.datasets.CIFAR10(
-    root='./data',
+    root='../data',
     train=False,  # 테스트용 데이터셋
     download=True,
     transform=transform
@@ -61,3 +62,24 @@ def loadtest():
     imshow(torchvision.utils.make_grid(images))
     # 레이블 출력
     print(' '.join('%5s' % classes[labels[j]] for j in range(8)))
+
+mlp = MLP()
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(mlp.parameters(), lr=0.001, momentum=0.9)
+
+# 모델 학습
+for epoch in range(2):
+    running_loss = 0.0
+    for i, data in enumerate(trainloader, 0):
+        inputs, labels = data
+        optimizer.zero_grad()
+        outputs = mlp(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+        if i % 100 == 99:
+            print(f'[{epoch + 1}, {i + 1}] loss: {running_loss / 100:.3f}')
+            running_loss = 0.0
+
+print('Finished Training')
