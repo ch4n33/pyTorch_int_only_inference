@@ -17,8 +17,9 @@ class RangeTracker(nn.Module):
     
     def __init__(self, momentum=0.1):
         super().__init__()
-        self.register_buffer('min_val', torch.tensor(0))
-        self.register_buffer('max_val', torch.tensor(0))
+        self.register_buffer('min_val', torch.tensor(10)) 
+        self.register_buffer('max_val', torch.tensor(-10))
+        # 초기 값을 0으로 줬더니 nan 오류가 발생했음. 임의로 10, -10으로 수정
         self.momentum = momentum
     
     @torch.no_grad()
@@ -43,7 +44,7 @@ class Quantizer(nn.Module):
         self.register_buffer('scale', None)
         self.register_buffer('zero_point', None)
         self.register_buffer('min_val', torch.tensor(0))
-        self.register_buffer('max_val', torch.tensor((1 << self.bits_precision) - 1))
+        self.register_buffer('max_val', torch.tensor((1 << self.num_bits) - 1))
     
     def round(self, x):
         # round 후에는 gradient가 0이 되므로, STE를 사용하여 gradient를 전달
@@ -56,6 +57,11 @@ class Quantizer(nn.Module):
         return x * self.scale + self.range_tracker.min_val
     
     def quantize(self, x):
+        if self.scale is None:
+            self.scale = (self.range_tracker.max_val - self.range_tracker.min_val) / (self.max_val - self.min_val - 1)
+        if self.scale == 0:
+            print ('scale is 0')
+            assert False
         return self.round((self.clamp(x) - self.range_tracker.min_val) / self.scale)
     
     def update_params(self):
