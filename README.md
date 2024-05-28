@@ -38,10 +38,12 @@ z3 = zeropoint of output activation
 s3 = scale of output activation
 M = a_16.scale * w_16.scale / s3
 
-product = z3 + int_only_multiplication(M, product)
+product = z3 + normalizedMultiplication(M, product)
         + bias
 
 product = product.to(torch.int8)
 output = Quantized_ReLU6(product )
 
 ```
+
+*   위 로직은 multiply.py에 구현하고, torch.quantization을 이용해 양자화 후 해당 로직을 수행하게 하면 될 것 같다.
