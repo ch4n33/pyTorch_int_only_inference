@@ -73,7 +73,7 @@ def main():
     optimizer = torch.optim.SGD(mlp.parameters(), lr=0.001, momentum=0.9)
 
     print('모델 학습')
-    with QuantizationEnabler(mlp):
+    with QuantizationEnabler(mlp): # type: ignore
         for epoch in range(2):
             running_loss = 0.0
             for i, data in enumerate(trainloader, 0):
