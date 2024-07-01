@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from quantizer import *
+import math
 
 
 class Linear(nn.Module):
@@ -8,42 +9,21 @@ class Linear(nn.Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = torch.nn.Parameter(torch.randn(out_features, in_features))
-        self.bias = torch.nn.Parameter(torch.randn(out_features))
+        self.weight = torch.nn.Parameter(torch.randn(out_features, in_features) * math.sqrt(2 / in_features)) 
+        # applied He initialization
+        self.bias = torch.nn.Parameter(torch.zeros(out_features))
         self.activation_quantizer = activation_quantizer or Quantizer(8, RangeTracker())
         self.weight_quantizer = weight_quantizer or Quantizer(8, RangeTracker())
         # bias는 32bit precision으로, quantization 할 필요가 없음
         self.QAT = False
-        self.quantized = False
 
     def forward(self, x):
-        if self.quantized:
-            # ?
-            return # quantized w, x을 
-        if (torch.isnan(x).any()):
-            print('x didnt have nan')
-            assert False
-        if (torch.isnan(self.weight).any()):
-            print('weight didnt have nan')
-            assert False
-        if (torch.isnan(self.bias).any()):
-            print('bias didnt have nan')
-            assert False
         if self.QAT:
             x = self.activation_quantizer(x)
             weight = self.weight_quantizer(self.weight)
         else:
             weight = self.weight
-        if (torch.isnan(x).any()):
-            print('x has nan')
-            assert False
-        if (torch.isnan(weight).any()):
-            print('weight has nan')
-            assert False
-        if (torch.isnan(self.bias).any()):
-            print('bias has nan')
-            assert False
-        
+        # print (x.shape, weight.shape) : torch.Size([64, 3072]) torch.Size([512, 3072])
         return torch.matmul(x, weight.t()) + self.bias
     
     def enable_quantization(self):

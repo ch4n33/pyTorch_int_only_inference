@@ -18,7 +18,3 @@ class QuantizationEnabler():
                 module.disable_quantization()
         print('Quantization disabled')
 
-
-class QuantizedReLU(nn.Module):
-    def forward(self, x, zero_point):
-        return torch.clamp(x, zero_point, 127)

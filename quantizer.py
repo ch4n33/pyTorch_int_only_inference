@@ -17,9 +17,8 @@ class RangeTracker(nn.Module):
     
     def __init__(self, momentum=0.1):
         super().__init__()
-        self.register_buffer('min_val', torch.tensor(10)) 
-        self.register_buffer('max_val', torch.tensor(-10))
-        # 초기 값을 0으로 줬더니 nan 오류가 발생했음. 임의로 10, -10으로 수정
+        self.min_val= torch.tensor(0) 
+        self.max_val= torch.tensor(0)
         self.momentum = momentum
     
     @torch.no_grad()
@@ -31,6 +30,11 @@ class RangeTracker(nn.Module):
     
     def update_range(self, min_val, max_val):
         # ema를 사용하여 min_val, max_val을 업데이트
+        if self.min_val == self.max_val :
+            # 첫번째 값이 들어올 때
+            self.min_val = min_val
+            self.max_val = max_val
+            return
         self.min_val = self.min_val * (1 - self.momentum) + min_val * self.momentum if self.min_val is not None else min_val
         self.max_val = self.max_val * (1 - self.momentum) + max_val * self.momentum if self.max_val is not None else max_val
 
@@ -41,10 +45,10 @@ class Quantizer(nn.Module):
         super().__init__()
         self.num_bits = num_bits
         self.range_tracker = range_tracker
-        self.register_buffer('scale', None)
-        self.register_buffer('zero_point', None)
-        self.register_buffer('min_val', torch.tensor(0))
-        self.register_buffer('max_val', torch.tensor((1 << self.num_bits) - 1))
+        self.scale = None
+        # self.zero_point = None
+        self.min_val = torch.tensor(0)
+        self.max_val = torch.tensor((1 << self.num_bits) - 1)
     
     def round(self, x):
         # round 후에는 gradient가 0이 되므로, STE를 사용하여 gradient를 전달
@@ -60,7 +64,7 @@ class Quantizer(nn.Module):
         if self.scale is None:
             self.scale = (self.range_tracker.max_val - self.range_tracker.min_val) / (self.max_val - self.min_val - 1)
         if self.scale == 0:
-            print ('scale is 0')
+            print ('scale is 0', self.range_tracker.max_val, self.range_tracker.min_val)
             assert False
         return self.round((self.clamp(x) - self.range_tracker.min_val) / self.scale)
     
@@ -70,9 +74,12 @@ class Quantizer(nn.Module):
         
         # int only inference에 사용될 값인 scale과 zero_point를 업데이트
         self.scale = float_range / quantized_range
-        self.zero_point = self.quantize(0)
+        # self.zero_point = self.quantize(torch.tensor(0))
         
     def forward(self, x):
+        self.range_tracker(x)
+        self.update_params()
         x = self.quantize(x)
         x = self.dequantize(x)
+        # print('range:', self.range_tracker.max_val - self.range_tracker.min_val)
         return x
