@@ -71,49 +71,53 @@ def main():
     # dev = 'cuda' if torch.cuda.is_available() else 'cpu'
     # torch.device(dev)
     # print('학습을 위한 장치:', dev)
-    
-    mlp = MLP(hidden_dim=256)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(mlp.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
 
-    def train(epoch=2):
+    def train(model, crit, opt, epoch=2):
         for epoch in range(epoch):
             running_loss = 0.0
             for i, data in enumerate(trainloader, 0):
                 inputs, labels = data
-                optimizer.zero_grad()
+                opt.zero_grad()
                 # print(inputs.shape, labels.shape) : torch.Size([64, 3, 32, 32]) torch.Size([64])
-                outputs = mlp(inputs)
-                loss = criterion(outputs, labels)
+                outputs = model(inputs)
+                loss = crit(outputs, labels)
                 loss.backward()
-                optimizer.step()
+                opt.step()
                 running_loss += loss.item()
                 if i % 100 == 99:
                     print(f'[{epoch + 1}, {i + 1}] loss: {running_loss / 100:.3f}')
                     running_loss = 0.0
 
-    def validate():
+    def validate(model):
         correct = 0
         total = 0
         with torch.no_grad():
             for data in testloader:
                 images, labels = data
-                outputs = mlp(images)
+                outputs = model(images)
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
         print(f'Accuracy of the network on the 10000 test images: {100 * correct / total}%')
     
+    model_no_qat = MLP(hidden_dim=256)
+    criterion = nn.CrossEntropyLoss()
+    optimizer_no_qat = torch.optim.SGD(model_no_qat.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
+    
     print('모델 학습 시작')
-    train(1)
-    validate()
+    train(model_no_qat, criterion, optimizer_no_qat, 1)
+    validate(model_no_qat)
     print('Finished Training')
     
+    model_qat = MLP(hidden_dim=256)
+    
+    optimizer_qat = torch.optim.SGD(model_qat.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
+    
     print('모델 QAT 시작')
-    with QuantizationEnabler(mlp): # type: ignore
-        train(1)
+    with QuantizationEnabler(model_qat): # type: ignore
+        train(model_qat, criterion, optimizer_qat, 1)
     print('Finished QTA')
-    validate()
+    validate(model_qat)
 
 if __name__ == '__main__':
     main()
