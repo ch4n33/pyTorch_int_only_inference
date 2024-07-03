@@ -72,7 +72,7 @@ def main():
     # torch.device(dev)
     # print('학습을 위한 장치:', dev)
 
-    def train(model, crit, opt, epoch=2):
+    def train(model, crit, opt, epoch=2, show=False):
         for epoch in range(epoch):
             running_loss = 0.0
             for i, data in enumerate(trainloader, 0):
@@ -100,14 +100,14 @@ def main():
                 correct += (predicted == labels).sum().item()
         print(f'Accuracy of the network on the 10000 test images: {100 * correct / total}%')
     
-    model_no_qat = MLP(hidden_dim=256)
     criterion = nn.CrossEntropyLoss()
-    optimizer_no_qat = torch.optim.SGD(model_no_qat.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
+    # model_no_qat = MLP(hidden_dim=256)
+    # optimizer_no_qat = torch.optim.SGD(model_no_qat.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
     
-    print('모델 학습 시작')
-    train(model_no_qat, criterion, optimizer_no_qat, 1)
-    validate(model_no_qat)
-    print('Finished Training')
+    # print('모델 학습 시작')
+    # train(model_no_qat, criterion, optimizer_no_qat, 1)
+    # validate(model_no_qat)
+    # print('Finished Training')
     
     model_qat = MLP(hidden_dim=256)
     
@@ -115,9 +115,20 @@ def main():
     
     print('모델 QAT 시작')
     with QuantizationEnabler(model_qat): # type: ignore
-        train(model_qat, criterion, optimizer_qat, 1)
+        train(model_qat, criterion, optimizer_qat, 1, show=True)
     print('Finished QTA')
-    validate(model_qat)
+    validate(model_qat) 
+    
+    #plot the scales
+    max_vals = model_qat.get_max_vals()
+    
+    fig, ax = plt.subplots(figsize=(10, 3), constrained_layout=True)
+    for i in range(len(max_vals)):
+        ax.plot(max_vals[i], label=f'Layer {i}')
+    plt.xlabel('max_vals')
+    plt.ylabel('Scale')
+    plt.legend()
+    plt.show()
 
 if __name__ == '__main__':
     main()
