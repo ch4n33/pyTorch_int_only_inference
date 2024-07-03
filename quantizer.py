@@ -21,12 +21,16 @@ class RangeTracker(nn.Module):
         self.min_val= torch.tensor(0) 
         self.max_val= torch.tensor(0)
         self.momentum = momentum
+        self.max_vals = []
+        self.min_vals = []
     
     @torch.no_grad()
     def forward(self, x):
         min_val = torch.min(x)
         max_val = torch.max(x)
-
+        # print(max_val, min_val)
+        self.max_vals.append(max_val.item())
+        self.min_vals.append(min_val.item())
         self.update_range(min_val, max_val)
     
     def update_range(self, min_val, max_val):
@@ -57,7 +61,7 @@ class Quantizer(nn.Module):
         return RoundSTE.apply(x)
     
     def clamp(self, x):
-        return torch.clamp(x, self.min_val, self.max_val)
+        return torch.clamp(x, self.range_tracker.min_val, self.range_tracker.max_val)
     
     def dequantize(self, x):
         return x * self.scale + self.range_tracker.min_val
