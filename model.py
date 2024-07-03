@@ -26,3 +26,15 @@ class MLP(nn.Module):
     
     def get_max_vals(self):
         return [module.max_vals for module in self.module_list]
+    
+    def get_means(self):
+        return [module.means for module in self.module_list]
+    
+    def get_bias_means(self):
+        return [module.bias_means for module in self.module_list]
+    
+    def get_rangetrackers_max(self):
+        return [module.activation_quantizer.range_tracker.max_vals for module in self.module_list]
+    
+    def get_rangetrackers_min(self):
+        return [module.activation_quantizer.range_tracker.min_vals for module in self.module_list]

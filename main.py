@@ -84,13 +84,15 @@ def main():
                 loss.backward()
                 opt.step()
                 running_loss += loss.item()
-                if i % 100 == 99:
-                    print(f'[{epoch + 1}, {i + 1}] loss: {running_loss / 100:.3f}')
+                r = 100
+                if i % r == r-1:
+                    print(f'[{epoch + 1}, {i + 1}] loss: {(running_loss / r):.3f}')
                     running_loss = 0.0
 
     def validate(model):
         correct = 0
         total = 0
+        prediction_statistics = np.zeros((10, 10))
         with torch.no_grad():
             for data in testloader:
                 images, labels = data
@@ -98,36 +100,67 @@ def main():
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                # update prediction statistics
+                for i in range(len(labels)):
+                    prediction_statistics[labels[i]][predicted[i]] += 1
         print(f'Accuracy of the network on the 10000 test images: {100 * correct / total}%')
-    
+        return prediction_statistics
     criterion = nn.CrossEntropyLoss()
-    # model_no_qat = MLP(hidden_dim=256)
-    # optimizer_no_qat = torch.optim.SGD(model_no_qat.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
+    model_no_qat = MLP(hidden_dim=256)
+    optimizer_no_qat = torch.optim.SGD(model_no_qat.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
     
-    # print('모델 학습 시작')
-    # train(model_no_qat, criterion, optimizer_no_qat, 1)
-    # validate(model_no_qat)
-    # print('Finished Training')
+    print('모델 학습 시작')
+    train(model_no_qat, criterion, optimizer_no_qat, 1)
+    prediction_matrix = validate(model_no_qat)
+    print('Finished Training')
+    print('Confusion matrix\n', prediction_matrix)
     
     model_qat = MLP(hidden_dim=256)
     
-    optimizer_qat = torch.optim.SGD(model_qat.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
+    optimizer_qat = torch.optim.SGD(model_qat.parameters(), lr=0.0005, momentum=0.9, weight_decay=5e-3)
     
     print('모델 QAT 시작')
     with QuantizationEnabler(model_qat): # type: ignore
         train(model_qat, criterion, optimizer_qat, 1, show=True)
     print('Finished QTA')
-    validate(model_qat) 
+    prediction_matrix = validate(model_qat) 
+
+    print('Confusion matrix\n', prediction_matrix)
     
     #plot the scales
     max_vals = model_qat.get_max_vals()
-    
-    fig, ax = plt.subplots(figsize=(10, 3), constrained_layout=True)
+    scales = model_qat.get_scales()
+    means = model_qat.get_means()
+    bias_means = model_qat.get_bias_means()
+
+    # fig, ax = plt.subplots(3, 1, figsize=(5, 6), constrained_layout=True)
+    # for i in range(len(max_vals)):
+    #     ax[0].plot(max_vals[i], label=f'Layer {i}')
+    #     ax[1].plot(scales[i], label=f'Layer {i}')
+    #     ax[2].plot(means[i], label=f'Layer {i}')
+    #     ax[2].plot(bias_means[i], label=f'Layer {i}', linestyle='--')
+    # ax[0].set_xlabel('Iteration')
+    # ax[0].set_ylabel('Max Value')
+    # ax[0].legend()
+    # ax[1].set_xlabel('Iteration')
+    # ax[1].set_ylabel('Scale')
+    # ax[1].legend()  
+    # ax[2].set_xlabel('Iteration')
+    # ax[2].set_ylabel('Mean')
+    # ax[2].legend()
+    mx = model_qat.get_rangetrackers_max()
+    mn = model_qat.get_rangetrackers_min()
+    fig, ax = plt.subplots(2, 1, figsize=(5, 6), constrained_layout=True)
     for i in range(len(max_vals)):
-        ax.plot(max_vals[i], label=f'Layer {i}')
-    plt.xlabel('max_vals')
-    plt.ylabel('Scale')
-    plt.legend()
+        ax[0].plot(mx[i], label=f'Layer {i}')
+        ax[1].plot(mn[i], label=f'Layer {i}')
+    ax[0].set_xlabel('Iteration')
+    ax[0].set_ylabel('Max Value')
+    ax[0].legend()
+    ax[1].set_xlabel('Iteration')
+    ax[1].set_ylabel('Min Value')
+    ax[1].legend()
+    
     plt.show()
 
 if __name__ == '__main__':
