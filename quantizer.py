@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torch import autograd
 
+scales= []
 
 class RoundSTE(autograd.Function):
     @staticmethod
@@ -46,6 +47,7 @@ class Quantizer(nn.Module):
         self.num_bits = num_bits
         self.range_tracker = range_tracker
         self.scale = None
+        self.scales = []
         # self.zero_point = None
         self.min_val = torch.tensor(0)
         self.max_val = torch.tensor((1 << self.num_bits) - 1)
@@ -74,12 +76,15 @@ class Quantizer(nn.Module):
         
         # int only inference에 사용될 값인 scale과 zero_point를 업데이트
         self.scale = float_range / quantized_range
+        self.scales.append(self.scale)
         # self.zero_point = self.quantize(torch.tensor(0))
         
     def forward(self, x):
         self.range_tracker(x)
         self.update_params()
+        before = x
         x = self.quantize(x)
         x = self.dequantize(x)
-        # print('range:', self.range_tracker.max_val - self.range_tracker.min_val)
+        after = x
+          
         return x

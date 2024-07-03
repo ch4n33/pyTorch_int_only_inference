@@ -16,11 +16,13 @@ class Linear(nn.Module):
         self.weight_quantizer = weight_quantizer or Quantizer(8, RangeTracker())
         # bias는 32bit precision으로, quantization 할 필요가 없음
         self.QAT = False
+        self.max_vals = []
 
     def forward(self, x):
         if self.QAT:
             x = self.activation_quantizer(x)
             weight = self.weight_quantizer(self.weight)
+            self.max_vals.append(torch.max(self.weight.flatten()).item())
         else:
             weight = self.weight
         # print (x.shape, weight.shape) : torch.Size([64, 3072]) torch.Size([512, 3072])
